@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 require 'bio-samtools'
 require 'optparse'
 
@@ -22,26 +23,6 @@ File.open("DCM_indel_rare.csv") do |file|
 		
 		dcm_indel_map << [ chr, pos.to_i ]
 	end
-end
-
-$particid_studyid = {}
-File.open("SampleID_LibraryID.tsv") do |file|
-	lineno = 0
-	file.each do |line|
-		lineno = lineno + 1
-		next unless lineno > 1
-		fields = line.split(" ")
-		$particid_studyid[fields[0]] = fields[1]
-	end
-end
-
-particids = [] 
-File.open("data/lucamp_snps_all_inter99.ped") do |file|
-	file.each do |line|
-		fields = line.split(" ")
-		particids << fields[0]	
-	end
-
 end
 
 

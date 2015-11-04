@@ -4,7 +4,7 @@ This a collection of tools for use with VCF files. These are not really general 
 but more specialized tools to itch my own scratches. For a general tool suite take a look at 
 [vcf-tools](https://github.com/vcftools/vcftools)
 
-* `_vcf-from-imputed_: Tool for converting imputed files (mach or impute2) to a VCF file. 
+* _vcf-from-imputed_: Tool for converting imputed files (mach or impute2) to a VCF file, including conversion between dosages, genotype likehoods and "called" genotypes. 
 
 * _vcf-bsearch_: Tool that does fast extraction of given positions in a sorted, but not necessarily indexed VCF file. Output is another VCF file.
 

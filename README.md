@@ -1,9 +1,13 @@
-## VCF misc
+## vcf-misc-tools
 
-This a collection of tools for use with VCF files.
+This a collection of tools for use with VCF files. These are not really general purpose tools, 
+but more specialized tools to itch my own scratches. For a general tool suite take a look at 
+[vcf-tools](https://github.com/vcftools/vcftools)
 
-`vcf-from-imputed` is a tool for converting imputed files (mach or impute2) to a VCF file. 
-`vcf-bsearch` is a tool that does fast extraction of given positions in a sorted, but not necessarily indexed VCF file. Output is another VCF file.
+* `_vcf-from-imputed_: Tool for converting imputed files (mach or impute2) to a VCF file. 
+
+* _vcf-bsearch_: Tool that does fast extraction of given positions in a sorted, but not necessarily indexed VCF file. Output is another VCF file.
+
 
 ## Licence
 

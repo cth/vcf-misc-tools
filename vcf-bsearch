@@ -1,7 +1,16 @@
 #!/usr/bin/env ruby
+# Copyright 2014 Christian Theil Have
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT 
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF 
+# CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE 
+# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 require 'bio-samtools'
 require 'optparse'
 require 'zlib'
+require 'pp'
 
 def gzfile?(file)
 	if /^.*gz$/.match(file)  
@@ -29,11 +38,8 @@ end
 
 
 def between(in_between, before, after)
-	puts "-> between"
 	false if before.nil? or after.nil?
 	in_between, before, after = in_between.to_i, before.to_i, after.to_i 
-	in_between >= before and in_between <= after
-	puts "<- between"
 	in_between >= before and in_between <= after
 end
 
@@ -49,7 +55,7 @@ def vcf_binary_search(vcf, chr, start_pos, end_pos, proximity=1000)
 
 	loop do
 		return if previous_index == index 
-		puts "loop #{index}"
+		#puts "loop #{index}"
 		previous_index = index
 
 		vcf.seek(index, IO::SEEK_SET)
@@ -73,9 +79,6 @@ def vcf_binary_search(vcf, chr, start_pos, end_pos, proximity=1000)
 			exit
 		end
 
-		puts vcfline.chrom+":"+vcfline.pos.to_s + "---" + chr.to_s  unless line.nil?
-
-		#if previous_index == index or (chr == vcfline.chrom and (start_pos - vcfline.pos).abs < proximity)
 		if same_chr(chr,vcfline.chrom) and (start_pos - vcfline.pos).abs < proximity
 			# seek at least a 2*proximity backwards to avoid overshooting or reading reading only part of relevant line 
 			vcf.seek( [ 0, index-(2*proximity) ].max,IO::SEEK_SET) if start_pos - vcfline.pos < 0
@@ -83,34 +86,31 @@ def vcf_binary_search(vcf, chr, start_pos, end_pos, proximity=1000)
 			begin 
 				loop do # keep reading lines until we get to start_pos
 					line = vcf.gets
-					puts "-> #{line}"
+					#puts "-> #{line}"
 					next if line =~ /^#.*/
 					vcfline=Bio::DB::Vcf.new(line)
-					next unless same_chr(chr, vcfline.chrom) # we might read past current chromosome
 
-					puts vcfline.pos
+					# FIXME: We might also read before current chrom (next vs. break)
+					break unless same_chr(chr, vcfline.chrom) # we might read past current chromosome
 
-					if between(vcfline.pos, start_pos, end_pos)
-						puts "here we are"
+					if between(start_pos,vcfline.pos, vcfline.info["END"])
+						vcfline.pos = start_pos
+						puts vcfline.inspect.to_s#.tr("\t\t","\\t.\\t") # FIXME: This should be fixed in Bio::DB::Vcf 
+					elsif	between(vcfline.pos, start_pos, end_pos)
 						puts line
-					elsif between(vcfline.pos, start.pos, vcfline_info["END"])
-						puts "second case"
-						puts line.gsub("END=#{vcfline_info["END"]}", "END=#{end_pos}")
-					elsif vcfline.pos > end_pos
-						puts "breaking"
+					elsif between(end_pos, vcfline.pos, vcfline.info["END"])
+						puts line.gsub("END=#{vcfline.info["END"]}", "END=#{end_pos}")
+					elsif vcfline.pos.to_i > end_pos.to_i
 						break
 					end
-					puts "looping"
 				end
-			rescue
-				puts "saved by the bell"
+			rescue => e
+				puts "saved by the bell: #{e.to_s}"
 				return
 			end
 		elsif chr_to_i(chr) < chr_to_i(vcfline.chrom) then
-			puts "chr.alert"
 			index = index - change
 		elsif chr_to_i(chr) > chr_to_i(vcfline.chrom) then
-			puts "chr.alert"
 			index = index + change
 		elsif pos < vcfline.pos then 
 			index = index - change
@@ -121,7 +121,7 @@ def vcf_binary_search(vcf, chr, start_pos, end_pos, proximity=1000)
 	end
 end
 
-options = {}
+options = { :linesize => 1000 }
 
 OptionParser.new do |opts|
 	opts.on( '-h', '--help', 'Display this screen' ) do
@@ -141,11 +141,11 @@ OptionParser.new do |opts|
 		options[:to] = options[:from] = position.to_i
 	end
 
-	opts.on("-f" "--from position", "First position to extract") do |pos|
+	opts.on("-f","--from position", "First position to extract") do |pos|
 		options[:from] = pos.to_i
 	end
 
-	opts.on("-t" "--to position", "Last position to extract") do |pos|
+	opts.on("-t","--to position", "Last position to extract") do |pos|
 		options[:to] = pos.to_i 
 	end
 
@@ -156,9 +156,8 @@ end.parse!
 
 throw("Missing --vcf input file. Cannot proceed!") unless options.include?(:vcf) 
 throw("Missing chromosome/position") unless [:chr, :to, :from].map { |x| options.include?(x) }.inject { |x,y| x and y }
-
  
-options[:from], options[:to] = options[:to], options[:from] if options[:from] < options[:to]
+options[:from], options[:to] = options[:to], options[:from] if options[:to] < options[:from]
 
 vcf = gzfile?(options[:vcf]).open(options[:vcf]) 
 
@@ -172,6 +171,6 @@ loop do
 	end
 end
 
-vcf_binary_search(vcf, options[:chr], options[:from], options[:to])
+vcf_binary_search(vcf, options[:chr], options[:from], options[:to],options[:linesize])
 
 vcf.close

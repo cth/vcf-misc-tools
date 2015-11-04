@@ -1,0 +1,147 @@
+require 'bio-samtools'
+require 'optparse'
+
+
+positions = {}
+
+dcm_indel_map = []
+
+File.open("DCM_indel_rare.csv") do |file|
+	lineno = 0
+	file.each do |line|
+		lineno = lineno + 1
+		next unless lineno > 1
+		chr, pos = *line.split(",")[0].split(":")
+		if positions[chr].nil? then
+		chr = "chr" + chr
+		#chr = "chr" + chr.gsub("X","23")
+			positions[chr] = [ pos.to_i ]
+		else
+			positions[chr] =  ([ pos.to_i ] + positions[chr]).sort
+		end
+		
+		dcm_indel_map << [ chr, pos.to_i ]
+	end
+end
+
+$particid_studyid = {}
+File.open("SampleID_LibraryID.tsv") do |file|
+	lineno = 0
+	file.each do |line|
+		lineno = lineno + 1
+		next unless lineno > 1
+		fields = line.split(" ")
+		$particid_studyid[fields[0]] = fields[1]
+	end
+end
+
+particids = [] 
+File.open("data/lucamp_snps_all_inter99.ped") do |file|
+	file.each do |line|
+		fields = line.split(" ")
+		particids << fields[0]	
+	end
+
+end
+
+
+#puts positions.inspect
+
+class String
+	def chr_i 
+	
+		i=self.gsub("chr","")
+		if i=="X" then
+			23
+		elsif i.to_i > 0 
+			i.to_i
+		else 
+			1000	
+		end	
+	end
+end
+
+def vcf_binary_search(file, chr, pos, proximity=1000)
+	gvcf=File.open(file)
+	gvcf.seek(0, IO::SEEK_END)
+	gvcf_size=gvcf.pos
+
+	index=gvcf_size / 2
+	change = index / 2
+	previous_index = 0
+
+	geno = nil 
+
+	loop do
+		#throw "error" if previous_index == index
+		previous_index = index
+
+		gvcf.seek(index, IO::SEEK_SET)
+		# We might be in the middle of a line skip to start of next line
+		gvcf.gets
+		line = gvcf.gets
+		vcfline=Bio::DB::Vcf.new(line)
+
+		if previous_index == index or (chr == vcfline.chrom and (pos - vcfline.pos).abs < proximity)
+			# seek backwards if we went slightly to long
+			gvcf.seek(index-20000,IO::SEEK_SET) if pos - vcfline.pos < 0
+			gvcf.readline
+			loop do 
+				line = gvcf.readline
+				vcfline=Bio::DB::Vcf.new(line)
+				if vcfline.pos = pos or (vcfline.pos > pos and !vcfline.info["END"].nil? and vcfline.info["END"].to_i <= pos) 
+					if  vcfline.samples["1"]["GT"] == "0/0"
+						geno = 0
+					elsif vcfline.samples["1"]["GT"] == "0/1" or vcfline.samples["1"]["GT"] == "0|1"	
+						geno = 1
+						puts vcfline.inspect
+					elsif vcfline.samples["1"]["GT"] == "1/1" or vcfline.samples["1"]["GT"] == "1|1"
+						geno = 1
+						puts vcfline.inspect
+					end	
+					break
+				end
+			end
+			break
+		elsif chr.chr_i < vcfline.chrom.chr_i then
+			index = index - change
+		elsif chr.chr_i > vcfline.chrom.chr_i then
+			index = index + change
+		elsif pos < vcfline.pos then 
+			index = index - change
+		elsif pos > vcfline.pos then
+			index = index + change
+		end
+		change = change / 2
+	end
+	gvcf.close
+
+	return geno
+end
+
+# Create arary to hold all genotypes
+genotypes = {} 
+particids.each do |p|
+	genotypes[p] = []
+	dcm_indel_map.size.times { genotypes[p] << "NA" }
+end
+
+File.open("vcf_files.txt") do |vcflist|
+	particids.each do |p|
+		vcf = vcffile(p)
+		next if vcf.nil?
+		dcm_indel_map.each_with_index do |chrpos,idx|
+			chr,pos = chrpos 
+			geno=vcf_binary_search(vcf,chr,pos)
+			genotypes[p][idx] = geno unless geno.nil?
+		end
+	end
+end
+
+# Write genotype table to file
+File.open("data/lucamp_indels.tsv", "w") do |file|
+	file.puts "particid\t" + (dcm_indel_map.collect { |indel| indel.first + ":" + indel.last.to_s }).join("\t")
+	genotypes.each do |k,v|
+		file.puts k + "\t" + v.join("\t")
+	end
+end

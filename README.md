@@ -6,7 +6,7 @@ but more specialized tools to itch my own scratches. For a general tool suite ta
 
 * _vcf-from-imputed_: Tool for converting imputed files (mach or impute2) to a VCF file, including conversion between dosages, genotype likehoods and "called" genotypes. 
 
-* _vcf-bsearch_: Tool that does fast extraction of given positions in a sorted, but not necessarily indexed VCF file. Output is another VCF file.
+* _vcf-bsearch_: Tool that does fast extraction of given positions in a sorted, but not necessarily indexed VCF file using a combination of binary and linear search. The output is another VCF file.
 
 
 ## Licence

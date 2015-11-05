@@ -8,6 +8,7 @@
 # CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE 
 # OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 require 'bio-samtools'
+require 'test/unit'
 require 'optparse'
 require 'zlib'
 require 'pp'
@@ -21,24 +22,23 @@ def gzfile?(file)
 end
 
 class Chromosome
+	include Comparable 
+
 	def initialize(chr)
 		@value_str = chr
 		chr_suffix=chr.to_s.gsub("chr","")
 		if chr_suffix =~ /^.*(X|Y|M|MT)$/ then
 			@value_int = ({"X" => 23, "Y" => 24, "M" => 26, "MT" => 26 })[$1]
-		elsif chr.to_i > 0 
-			@value_int = chr.to_i
+		elsif chr_suffix.to_i > 0 
+			@value_int = chr_suffix.to_i
 		else 
 			1000 
 		end	
 	end
 	
-	def ==(other)
-		self.to_i == other.to_i	
-	end
-
 	def <=>(other)
 		self.to_i <=> other.to_i
+	end
 
 	def to_i
 		@value_int
@@ -50,13 +50,16 @@ class Chromosome
 end
 
 class GRange
+
+	include Comparable
+
 	attr_reader :chr, :from, :to
 
 	def initialize(chr,from=nil,to=nil)
 		@chr = Chromosome.new(chr)
 
 		to = from if to.nil?
-		to,from = to.to_i,from.to.i
+		to,from = to.to_i,from.to_i
 		
 		if to < from   
 			@from, @to = to, from
@@ -64,25 +67,18 @@ class GRange
 			@to, @from = to, from
 		end
 	end
-	
-	def <=>(other)
-	#	if (@chr <=> other.chr) > 0 then
-	#		kk
-	#	end
-	#	if @chr == other.chr 
-	#		
-	#	end
+
+	def -(i)
+		GRange.new(@chr.to_s, [ @from-i, 0 ].max, @to)
 	end
 
-	def chromosome_to_integer(chr) 
-		chr=chr.to_s.gsub("chr","")
-		if chr =~ /^.*(X|Y|M|MT)$/ then
-			({"X" => 23, "Y" => 24, "M" => 26, "MT" => 26 })[$1]
-		elsif chr.to_i > 0 
-			chr.to_i
-		else 
-			1000 
-		end	
+	def +(i)
+		GRange.new(@chr.to_s, @from, @to+i)
+	end
+
+	
+	def <=>(other)
+		[ self.chr, self.from ] <=> [ other.chr, other.from ] 
 	end
 
 	def overlaps(other_range)
@@ -97,7 +93,7 @@ class GRange
 		@chr == other_range.chr and between(@to, other_range.from, other_range.to)
 	end
 	
-	def includes(other_grange)
+	def includes(other_range)
 		other_range.included_in(self)
 	end
 
@@ -107,6 +103,7 @@ class GRange
 end
 
 def ranges_from_bedfile(file)
+	puts "ranges_from_bedfile"
 	ranges = []
 	File.open(file) do |file|
 		file.each do |line|
@@ -120,11 +117,6 @@ def ranges_from_bedfile(file)
 	ranges
 end
 
-
-def same_chr(chr_a, chr_b) 
-	chr_a_i, chr_b_i = chr_to_i(chr_a), chr_to_i(chr_b)
-	chr_a_i == chr_b_i
-end
 
 
 def between(in_between, before, after)
@@ -144,23 +136,25 @@ def chromosome_to_integer(chr)
 	end	
 end
 
-def vcf_binary_search(vcf, range, proximity=1000)
-#def vcf_binary_search(vcf, chr, start_pos, end_pos, proximity=1000)
+def vcf_binary_search(vcf, range, linesize, proximity_range)
 	vcf.seek(0, IO::SEEK_END)
 	vcf_size = vcf.pos
 
-	pos = range.from	
 	index = vcf_size / 2
 	change = index / 2
 	previous_index = 0
 
 	loop do
-		return if previous_index == index 
-		#puts "loop #{index}"
+		vcfline=nil
+		# TODO: We might want do something smart when search is stale, i.e., increasing proximity
+		# stale can either mean that proximity setting is too narrow (we might overshoot) or that range was not found
+		stale = (previous_index == index) 
+		
 		previous_index = index
 
 		vcf.seek(index, IO::SEEK_SET)
-		# We might be in the middle of a line skip to start of next line
+
+		# Since we might be in the middle of a line, skip to start of next line:
 		begin 
 			line=nil
 			vcf.gets
@@ -170,46 +164,76 @@ def vcf_binary_search(vcf, range, proximity=1000)
 			end 
 			vcfline=Bio::DB::Vcf.new(line)
 		rescue EOFError => end_of_file
-			return
+			return false
 		end
 
 		vcfrange = GRange.new(vcfline.chrom, vcfline.pos, vcfline.info["END"])
 
-		if vcfrange.chr == range.chr and (range.from - vcfline.pos).abs < proximity # FIXME: proximity and line size are two different things!
-			# seek at least a 2*proximity backwards to avoid overshooting or reading reading only part of relevant line 
-			vcf.seek( [ 0, index-(2*proximity) ].max,IO::SEEK_SET) if range.from - vcfline.pos < 0
+		# FIXME: proximity and line size are (might be) two different things!
+		if proximity_range.overlaps(vcfrange) 
+			#(range.from - vcfline.pos).abs < proximity 
+			# seek at least a 2*linesize backwards to avoid overshooting or reading reading only part of relevant line 
+			vcf.seek( [ 0, index-(2*linesize) ].max,IO::SEEK_SET)
 			vcf.gets # The first line read might be a "half" line - throw it away
 			begin 
 				loop do # keep reading lines until we get to range_from
 					line = vcf.gets
-					#puts "-> #{line}"
 					next if line =~ /^#.*/
-					vcfline=Bio::DB::Vcf.new(line)
+					vcfline = Bio::DB::Vcf.new(line)
+					vcfrange = GRange.new(vcfline.chrom, vcfline.pos, vcfline.info["END"])
 
-					if GRange.new(vcfline.chrom, vcfline.pos, vcfline.info["END"]).overlaps(range)
+
+					if vcfrange.overlaps(range)
 						puts line
-					else
-						break
+					elsif vcfrange > range
+						return true	
 					end
 				end
 			rescue => e
-				STDERR.puts "saved by the bell: #{e.to_s}"
+				STDERR.puts "saved by the bell: #{e.inspect}"
 				return
 			end
-		elsif range.chr < vcfrange.chr then
+		elsif stale
+			return false 
+		elsif range < vcfrange then
 			index = index - change
-		elsif range.chr > vcfrange.chr then
-			index = index + change
-		elsif pos < vcfline.pos then 
-			index = index - change
-		elsif pos > vcfline.pos then
+		elsif range > vcfrange then
 			index = index + change
 		end
 		change = change / 2
 	end
 end
 
-options = { :linesize => 1000 }
+##################################### tests ##################################
+
+class Test::Unit::Runner
+  @@stop_auto_run = true
+end
+
+
+class TestGRange < Test::Unit::TestCase
+	def test_grange_overlaps
+		g1 = GRange.new("chr1", 50,100)
+		g2 = GRange.new("chr2", 50,100)
+		g3 = GRange.new("chr1", 101,200)
+		g4 = GRange.new("chr1", 1,75)
+		g5 = GRange.new("chr1", 1,150)
+
+		assert(g1.overlaps(g1))
+		assert(not(g1.overlaps(g2)))
+		assert(not(g1.overlaps(g3)))
+		assert(not(g3.overlaps(g1)))
+		assert(not(g1.overlaps(g3)))
+		assert(g4.overlaps(g1))
+		assert(g1.overlaps(g4))
+		assert(g1.overlaps(g5))
+		assert(g5.overlaps(g1))
+	end
+end
+
+##################################### main ###################################
+
+options = { :proximity => 1000 }
 
 help = nil
 OptionParser.new do |opts|
@@ -223,27 +247,37 @@ OptionParser.new do |opts|
 	end
 
 	opts.on("-c", "--chr chrom", "chromosome") do |chrom|
-		options[:chr] = chr_to_i(chrom)
+		options[:chr] = chrom
 	end 
 	
 	opts.on("-p", "--pos position", "Position to extract") do |position|
-		options[:to] = options[:from] = position.to_i
+		options[:to] = options[:from] = position
 	end
 
 	opts.on("-f","--from position", "First position to extract") do |pos|
-		options[:from] = pos.to_i
+		options[:from] = pos
 	end
 
 	opts.on("-t","--to position", "Last position to extract") do |pos|
-		options[:to] = pos.to_i 
+		options[:to] = pos
 	end
 
 	opts.on("-b", "--bed bedfile", "Extract ranges given in bed file" ) do |bedfile|
 		options[:bed] = bedfile
 	end
 
+	opts.on("-l", "--linear n", "use linear search if current position is less than --to  and within n number of bases") do |n|
+		options[:proximity] = n 
+	end
+
+	opts.on("-x", "--test", "Run unit tests") do
+		options[:test] = true
+	end
+
 	help = opts.to_s
 end.parse!
+
+if options[:test] then Test::Unit::Runner.new.run if options[:test]; exit end
 
 begin
 	throw("Missing --vcf input file. Cannot proceed!") unless options.include?(:vcf) 
@@ -251,8 +285,8 @@ begin
 	throw("Missing range (chromosome/position(s)/bedfile)") unless (cmdline_range_specified or options.include?(:bed))
 
 	ranges = []
-	ranges << Grange.new(*([:chr, :to, :from].map { |x| options[x] })) if cmdline_range_specified
-	ranges = ranges + ranges_from_bedfile(options[:bed])
+	ranges << GRange.new(*([:chr, :to, :from].map { |x| options[x] })) if cmdline_range_specified
+	ranges = ranges + ranges_from_bedfile(options[:bed]) if options.include?(:bed)
 
 	vcf = gzfile?(options[:vcf]).open(options[:vcf]) 
 
@@ -263,18 +297,13 @@ begin
 		else
 			# assuming that the size of first line is representative of rest, this is the approximate distance
 			# where linear search will finally be used after fast binary has narrowed in on the correct line 
-			options[:linear_search_size] = 2*line.size 
+			options[:line_size] = line.size 
 			break
 		end
 	end
 
-	ranges.call do |chr,to,from|
-		puts "#{chr} #{to} #{from}"
-		#options[:from], options[:to] = options[:to], options[:from] if options[:to] < options[:from]
-	end
-	#vcf_binary_search(vcf, options[:chr], options[:from], options[:to],options[:linear_search_size])
+	ranges.each { |range| vcf_binary_search(vcf, range, options[:linesize].to_i, range-options[:proximity].to_i) }
 
-	vcf.close
 rescue => e
 	STDERR.puts e.to_s.gsub("uncaught throw", "ERROR:")
 	STDERR.puts help

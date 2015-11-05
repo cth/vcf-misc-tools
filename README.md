@@ -2,28 +2,29 @@
 
 This a collection of tools for use with VCF files. These are not really general purpose tools, 
 but more specialized tools to itch my own scratches. For a general tool suite take a look at 
-[vcf-tools](https://github.com/vcftools/vcftools)
+[vcf-tools](https://github.com/vcftools/vcftools).
 
 * _vcf-from-imputed_: Tool for converting imputed files (mach or impute2) to a VCF file, including conversion between dosages, genotype likehoods and "called" genotypes. 
 
-* _vcf-bsearch_: Tool that does fast extraction of given positions in a sorted, but not necessarily indexed VCF file using a combination of binary and linear search. The output is another VCF file.
-
+* _vcf-bsearch_: Tool that does fast extraction of given positions/ranges in a sorted, but not necessarily indexed VCF file using a combination of binary and linear search. The output is another VCF file.
 
 ## Licence
+Copyright 2015 Christian Theil Have
 
-	vcf-misc-tools 
-    Copyright (C) 2015  Christian Theil HAve
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT 
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF 
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE 
+OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 

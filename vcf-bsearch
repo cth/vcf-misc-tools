@@ -110,6 +110,12 @@ class GRange
 	def included_in(other_range)
 		left_overlaps(other_range) and right_overlaps(other_range)
 	end
+
+	def between(in_between, before, after)
+		return false if before.nil? or after.nil?
+		in_between, before, after = in_between.to_i, before.to_i, after.to_i 
+		in_between >= before and in_between <= after
+	end
 end
 
 def ranges_from_bedfile(file)
@@ -125,25 +131,6 @@ def ranges_from_bedfile(file)
 		end
 	end
 	ranges
-end
-
-
-
-def between(in_between, before, after)
-	return false if before.nil? or after.nil?
-	in_between, before, after = in_between.to_i, before.to_i, after.to_i 
-	in_between >= before and in_between <= after
-end
-
-def chromosome_to_integer(chr) 
-	chr=chr.to_s.gsub("chr","")
-	if chr =~ /^.*(X|Y|M|MT)$/ then
-		({"X" => 23, "Y" => 24, "M" => 26, "MT" => 26 })[$1]
-	elsif chr.to_i > 0 
-		chr.to_i
-	else 
-		1000 
-	end	
 end
 
 def vcf_binary_search(vcf, range, linesize, proximity_range)

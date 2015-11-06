@@ -1,7 +1,7 @@
 ## vcf-misc-tools
 
-This a collection of tools for use with VCF files. These are not really general purpose tools, 
-but more specialized tools to itch my own scratches. For a general tool suite take a look at 
+This a couple of tools for use with VCF files. These are not really general purpose tools, 
+but more specialized tools to itch my own scratches. For a general purpose full-fledged tool suite take a look at 
 [vcf-tools](https://github.com/vcftools/vcftools).
 
 * _vcf-from-imputed_: Tool for converting imputed files (mach or impute2) to a VCF file, including conversion between dosages, genotype likehoods and "called" genotypes. 

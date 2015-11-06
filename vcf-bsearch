@@ -23,14 +23,6 @@ require 'optparse'
 require 'zlib'
 require 'pp'
 
-def gzfile?(file)
-	if /^.*gz$/.match(file)  
-		Zlib::GzipReader 
-	else
-		File
-	end
-end
-
 class Chromosome
 	include Comparable 
 
@@ -288,7 +280,7 @@ begin
 	ranges << GRange.new(*([:chr, :to, :from].map { |x| options[x] })) if cmdline_range_specified
 	ranges = ranges + ranges_from_bedfile(options[:bed]) if options.include?(:bed)
 
-	vcf = gzfile?(options[:vcf]).open(options[:vcf]) 
+	vcf = File.open(options[:vcf])
 
 	loop do 
 		line=vcf.gets

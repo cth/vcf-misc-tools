@@ -156,7 +156,7 @@ def vcf_binary_search(vcf, range, linesize, proximity_range)
 			return false
 		end
 
-		vcfrange = GRange.new(vcfline.chrom, vcfline.pos, vcfline.info["END"])
+		vcfrange = GRange.new(vcfline.chrom, vcfline.pos, vcfline.info.nil? ? vcfline.pos : vcfline.info["END"])
 
 		# FIXME: proximity and line size are (might be) two different things!
 		if proximity_range.overlaps(vcfrange) 
@@ -169,7 +169,7 @@ def vcf_binary_search(vcf, range, linesize, proximity_range)
 					line = vcf.gets
 					next if line =~ /^#.*/
 					vcfline = Bio::DB::Vcf.new(line)
-					vcfrange = GRange.new(vcfline.chrom, vcfline.pos, vcfline.info["END"])
+					vcfrange = GRange.new(vcfline.chrom, vcfline.pos, vcfline.info.nil? ? vcfline.pos : vcfline.info["END"])
 
 
 					if vcfrange.overlaps(range)

@@ -291,6 +291,8 @@ class VCF
 		puts "Read #{lineno-1} samples from #{@options[:samplefile]}"
 
 
+		info_index = nil
+		certainty_index = nil
 		markers = []
 		if @options[:imputeinfo] then 
 			File.open(@options[:imputeinfo]) do |file|
@@ -298,9 +300,12 @@ class VCF
 				file.each do |line|
 					fields = line.chomp.split(/ /)	
 					if lineno == 0
-						rt_assert {(fields[4] == "info") and (fields[5] == "certainty")}
+						puts fields.inspect
+						info_index = fields.rindex("info")
+						certainty_index = fields.rindex("certainty")
+						rt_assert {(fields[info_index] == "info") and (fields[certainty_index]=="certainty")}
 					else
-						markers[lineno] = { :snp => fields[1], :info => fields[4], :certainty => fields[5] }
+						markers[lineno] = { :snp => fields[1], :info => fields[info_index], :certainty => fields[certainty_index] }
 					end
 					lineno = lineno + 1
 				end

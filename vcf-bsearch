@@ -111,7 +111,6 @@ class GRange
 end
 
 def ranges_from_bedfile(file)
-	puts "ranges_from_bedfile"
 	ranges = []
 	File.open(file) do |file|
 		file.each do |line|

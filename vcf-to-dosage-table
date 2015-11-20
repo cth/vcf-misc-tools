@@ -1,0 +1,92 @@
+#!/usr/bin/env ruby
+# Copyright 2015 Christian Theil Have
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+#	The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT 
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF 
+# CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE 
+# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+require 'bio-samtools'
+require 'optparse'
+require 'zlib'
+require 'pp'
+
+options = {}
+
+OptionParser.new do |opts|
+	opts.on( '-h', '--help', 'Display this message' ) do
+		STDERR.puts opts
+		exit
+	end
+
+	opts.on("-v", "--vcf file.vcf", "VCF file to extract from") do |file|
+		options[:vcf] = file 
+	end
+
+	opts.on("-i", "--info file.info", "Generate INFO with for all variant") do |file|
+		options[:info] = file 
+	end
+
+	opts.on("-d", "--dosage file.dosage", "Dosage table file") do |file|
+		options[:dosage] = file
+	end
+end.parse!
+
+info_lines = [[ "ID", "REF", "ALT", "CHROM", "POS", "ALT_FREQ" ]]
+begin
+	throw("Missing --vcf input file. Cannot proceed!") unless options.include?(:vcf) 
+	[ :dosage, :info].each { |i| options[i] = options[:vcf] + "." + i.to_s unless options.include?(i) }
+
+	pp options
+
+	columns = []
+	variants_processed=0
+	File.open(options[:vcf]) do |file|
+		file.each do |line|
+			if line =~ /^#CHROM.*/ then
+				fields = line.chomp.split("\t")
+				9.times { fields.shift }
+				columns[0] = ['particid'] + fields
+			end
+			next if line =~ /^#.*/
+			variants_processed = variants_processed + 1
+			puts "variants processed: #{variants_processed}" if variants_processed % 100 == 0
+			vcfline=Bio::DB::Vcf.new(line)
+
+			columns << [ vcfline.id ]
+
+			dosage_sum=0
+			vcfline.samples.each do |id,geno|
+				columns[columns.size-1] << "%.3f" % geno["DS"]
+				#puts geno.inspect
+				dosage_sum = dosage_sum + geno["DS"].to_f
+			end
+
+			allele_freq ="%.3f" % (dosage_sum.to_f / (2*vcfline.samples.size))
+
+			# todo: RSQ (but we do not need it yet)
+			info_lines << [ vcfline.id, vcfline.ref, vcfline.alt, vcfline.chrom, vcfline.pos, allele_freq ]
+		end
+	end 
+
+	File.open(options[:dosage], "w") do |file|
+		columns.transpose.each { |r| file.puts r.join("\t") }
+	end
+
+	File.open(options[:info], "w") do |file|
+		info_lines.each { |fields| file.puts fields.join("\t") }
+	end
+rescue => e
+	STDERR.puts e.to_s.gsub("uncaught throw", "ERROR:")
+end

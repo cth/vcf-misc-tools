@@ -3,12 +3,6 @@
 This a couple of tools for use with VCF files which may
 contain imputed data, i.e., dosages or genotype likelihoods.
 
-These are not really general purpose tools, 
-but just a few specialized tools to itch my own scratches. 
-
-For a general purpose full-fledged tool suite take a look at,e.g.,  
-[vcf-tools](https://github.com/vcftools/vcftools).
-
 * _vcf-from-imputed_: Tool for converting imputed files (mach or impute2) to a VCF file, including conversion between dosages, genotype likehoods and "called" genotypes. 
 
 * _vcf-bsearch_: Tool that does fast extraction of given positions/ranges in a sorted, but not necessarily indexed VCF file using a combination of binary and linear search. The output is another VCF file.

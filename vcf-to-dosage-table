@@ -43,7 +43,29 @@ OptionParser.new do |opts|
 	end
 end.parse!
 
-info_lines = [[ "ID", "REF", "ALT", "CHROM", "POS", "ALT_FREQ" ]]
+module Variance
+  def sum(&blk)
+    map(&blk).inject { |sum, element| sum + element }
+  end
+
+  def mean
+    (sum.to_f / size.to_f)
+  end
+
+  def variance
+    m = mean
+    sum { |i| ( i - m )**2 } / size
+  end
+
+  def std_dev
+    Math.sqrt(variance)
+  end
+end
+
+Array.send :include, Variance
+
+
+info_lines = [[ "ID", "REF", "ALT", "CHROM", "POS", "ALT_FREQ", "INFO"]]
 begin
 	throw("Missing --vcf input file. Cannot proceed!") unless options.include?(:vcf) 
 	[ :dosage, :info].each { |i| options[i] = options[:vcf] + "." + i.to_s unless options.include?(i) }
@@ -67,16 +89,29 @@ begin
 			columns << [ vcfline.id ]
 
 			dosage_sum=0
+			dosages = []
 			vcfline.samples.each do |id,geno|
 				columns[columns.size-1] << "%.3f" % geno["DS"]
-				#puts geno.inspect
 				dosage_sum = dosage_sum + geno["DS"].to_f
+				dosages << geno["DS"].to_f
 			end
 
 			allele_freq ="%.3f" % (dosage_sum.to_f / (2*vcfline.samples.size))
 
-			# todo: RSQ (but we do not need it yet)
-			info_lines << [ vcfline.id, vcfline.ref, vcfline.alt, vcfline.chrom, vcfline.pos, allele_freq ]
+			# In newer VCFs this may be available directly (INFO), but is calculated for 
+			# all imputed inviduals, where as this mey be a subset of the original imputations
+			# Which to use? - currently we go with INFO from vcf if available, but later this
+			# may become and option.
+			if vcfline.info.include?("INFO")
+				rsq = vcfline.info["INFO"]
+			else
+				p =  dosages.mean / 2.0
+				p_all = 2.0 * p * (1.0 - p)
+				rsq = dosages.variance / p_all
+				rsq = 1.0 if rsq > 1.0
+			end
+
+			info_lines << [ vcfline.id, vcfline.ref, vcfline.alt, vcfline.chrom, vcfline.pos, allele_freq, rsq]
 		end
 	end 
 

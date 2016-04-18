@@ -1,0 +1,145 @@
+#!/usr/bin/env ruby
+# Copyright 2015 Christian Theil Have
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+#	The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A 
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT 
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF 
+# CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE 
+# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+require 'test/unit'
+require 'optparse'
+require 'zlib'
+require 'pp'
+
+
+def split_file_name(i, vcf)
+	letters = []
+	"a".upto("z") { |l| letters << l }
+	digit0 = i % letters.size
+	digit1 = i / letters.size
+	digit2 = digit1 / letters.size
+	digit1 = digit1 % letters.size
+
+	[ letters[digit2], letters[digit1], letters[digit0] ].join("") + "_" + vcf
+end
+
+def split_vcf(vcf,samples_per_file)
+	header_lines_all = []
+	no_samples_each = []
+	output_files = [] 
+
+	in_header=true
+
+	File.open(vcf) do |vcffile|
+		vcffile.each do |line|
+			if in_header then
+				if line =~ /^#CHROM.*/ then
+					fields=line.split("\t")
+					no_files = (fields.size-9) / samples_per_file
+					1.upto(no_files) { no_samples_each << samples_per_file }
+					if (fields.size-9) % samples_per_file != 0
+						no_files = no_files + 1
+						no_samples_each << (fields.size-9) % samples_per_file
+					end
+
+					puts "Splitting #{vcf} into #{no_files} files.."
+
+
+					# Open split files and write all headers
+					1.upto(no_files) do |i|
+						output_files << File.open(split_file_name(i-1,vcf), "w")
+						header_lines_all.each { |l| output_files.last.puts(l) }
+					end
+						
+					# In header no more
+					in_header = false
+					puts no_samples_each.inspect
+				else
+					header_lines_all << line 
+				end
+			end
+
+				
+			if !in_header then
+				fields=line.chomp.split("\t")
+				output_files.each_with_index do |ofile,idx|
+					sample_line = []
+					0.upto(8) { |i| sample_line << fields[i] }
+					offset = 9+(idx*samples_per_file)
+					offset.upto(offset+no_samples_each[idx]) { |i| sample_line << fields[i] }
+					ofile.puts(sample_line.join("\t"))
+				end
+			end
+		end
+	end
+end
+
+##################################### tests ##################################
+
+class Test::Unit::Runner
+  @@stop_auto_run = true
+end
+
+
+class TestGRange < Test::Unit::TestCase
+	def filenames 
+		assert(true, "aaa_myvcf"==split_file_name(0, "my.vcf"))
+		assert(true, "aaz_myvcf"==split_file_name(25, "my.vcf"))
+		assert(true, "aba_myvcf"==split_file_name(26, "my.vcf"))
+		assert(true, "abb_myvcf"==split_file_name(27, "my.vcf"))
+		assert(true, "baa_myvcf"==split_file_name(26*26, "my.vcf"))
+	end
+end
+
+##################################### main ###################################
+
+options = {}
+
+help = nil
+OptionParser.new do |opts|
+	opts.on( '-h', '--help', 'Display this message' ) do
+		STDERR.puts opts
+		exit
+	end
+
+	opts.on("-v", "--vcf file.vcf", "VCF file to split") do |vcf|
+		options[:vcf] = vcf
+	end
+
+	opts.on("-s", "--samples n", "n") do |n|
+		options[:samples_per_file] = n.to_i 
+	end 
+
+	opts.on("-t", "--test") do 
+		options[:test] = true
+	end
+	
+	help = opts.to_s
+end.parse!
+
+if options.include?(:test)
+	Test::Unit::Runner.new.run
+	exit 
+end
+
+puts options.inspect
+
+begin
+	throw("Missing --vcf input file. Cannot proceed!") unless options.include?(:vcf) 
+	throw("Please specify number of samples of per file using --samples option. Aborting!") unless options.include?(:samples_per_file) 
+	split_vcf(options[:vcf], options[:samples_per_file].to_i)
+rescue => e
+	STDERR.puts e.to_s.gsub("uncaught throw", "ERROR:")
+	STDERR.puts help
+end

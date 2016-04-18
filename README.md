@@ -9,6 +9,8 @@ contain imputed data, i.e., dosages or genotype likelihoods.
 
 * _vcf-to-dosage-table_: Converts dosages from a VCF to a transposed tabular format (rows=individuals, cols=variants). Besage the dosage table file, an INFO file details REF/ALT alleles, ALT frequency and imputation score (INFO) for each variant.
 
+* _vcf-split_: Column/individual-wise split of VCF file into several VCFs files. 
+
 ## Licence
 Copyright 2015 Christian Theil Have
 

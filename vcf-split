@@ -64,7 +64,6 @@ def split_vcf(vcf,samples_per_file)
 						
 					# In header no more
 					in_header = false
-					puts no_samples_each.inspect
 				else
 					header_lines_all << line 
 				end

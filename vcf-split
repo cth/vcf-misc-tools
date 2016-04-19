@@ -76,7 +76,7 @@ def split_vcf(vcf,samples_per_file)
 					sample_line = []
 					0.upto(8) { |i| sample_line << fields[i] }
 					offset = 9+(idx*samples_per_file)
-					offset.upto(offset+no_samples_each[idx]) { |i| sample_line << fields[i] }
+					offset.upto(offset+no_samples_each[idx]-1) { |i| sample_line << fields[i] }
 					ofile.puts(sample_line.join("\t"))
 				end
 			end

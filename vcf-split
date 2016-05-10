@@ -23,7 +23,7 @@ require 'zlib'
 require 'pp'
 
 
-def split_file_name(i, prefix="", vcf)
+def split_file_name(i,  vcf, prefix="")
 	letters = []
 	"a".upto("z") { |l| letters << l }
 	digit0 = i % letters.size
@@ -34,7 +34,7 @@ def split_file_name(i, prefix="", vcf)
 	[ prefix, letters[digit2], letters[digit1], letters[digit0] ].join("") + "_" + vcf
 end
 
-def split_vcf(vcf,samples_per_file)
+def split_vcf(vcf,samples_per_file,prefix)
 	header_lines_all = []
 	no_samples_each = []
 	output_files = [] 
@@ -58,7 +58,7 @@ def split_vcf(vcf,samples_per_file)
 
 					# Open split files and write all headers
 					1.upto(no_files) do |i|
-						output_files << File.open(split_file_name(i-1,vcf), "w")
+						output_files << File.open(split_file_name(i-1,vcf,prefix), "w")
 						header_lines_all.each { |l| output_files.last.puts(l) }
 					end
 						
@@ -95,7 +95,7 @@ class TestGRange < Test::Unit::TestCase
 		assert(true, "abb_myvcf"==split_file_name(27, "my.vcf"))
 		assert(true, "baa_myvcf"==split_file_name(26*26, "my.vcf"))
 
-		assert(true, "myprefix_aaa_myvcf"==split_file_name(0, "myprefix", "my.vcf"))
+		assert(true, "myprefix_aaa_myvcf"==split_file_name(0, "my.vcf", "myprefix"))
 	end
 end
 class Test::Unit::Runner
@@ -105,7 +105,7 @@ end
 
 ##################################### main ###################################
 
-options = {}
+options = { :prefix => "" }
 
 help = nil
 OptionParser.new do |opts|
@@ -143,7 +143,7 @@ puts options.inspect
 begin
 	throw("Missing --vcf input file. Cannot proceed!") unless options.include?(:vcf) 
 	throw("Please specify number of samples of per file using --samples option. Aborting!") unless options.include?(:samples_per_file) 
-	split_vcf(options[:vcf], options[:samples_per_file].to_i)
+	split_vcf(options[:vcf], options[:samples_per_file].to_i, options[:prefix])
 rescue => e
 	STDERR.puts e.to_s.gsub("uncaught throw", "ERROR:")
 	STDERR.puts help

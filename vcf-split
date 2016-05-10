@@ -23,7 +23,7 @@ require 'zlib'
 require 'pp'
 
 
-def split_file_name(i, vcf)
+def split_file_name(i, prefix="", vcf)
 	letters = []
 	"a".upto("z") { |l| letters << l }
 	digit0 = i % letters.size
@@ -31,7 +31,7 @@ def split_file_name(i, vcf)
 	digit2 = digit1 / letters.size
 	digit1 = digit1 % letters.size
 
-	[ letters[digit2], letters[digit1], letters[digit0] ].join("") + "_" + vcf
+	[ prefix, letters[digit2], letters[digit1], letters[digit0] ].join("") + "_" + vcf
 end
 
 def split_vcf(vcf,samples_per_file)
@@ -86,10 +86,6 @@ end
 
 ##################################### tests ##################################
 
-class Test::Unit::Runner
-  @@stop_auto_run = true
-end
-
 
 class TestGRange < Test::Unit::TestCase
 	def filenames 
@@ -98,8 +94,14 @@ class TestGRange < Test::Unit::TestCase
 		assert(true, "aba_myvcf"==split_file_name(26, "my.vcf"))
 		assert(true, "abb_myvcf"==split_file_name(27, "my.vcf"))
 		assert(true, "baa_myvcf"==split_file_name(26*26, "my.vcf"))
+
+		assert(true, "myprefix_aaa_myvcf"==split_file_name(0, "myprefix", "my.vcf"))
 	end
 end
+class Test::Unit::Runner
+  @@stop_auto_run = true
+end
+
 
 ##################################### main ###################################
 
@@ -119,6 +121,10 @@ OptionParser.new do |opts|
 	opts.on("-s", "--samples n", "n") do |n|
 		options[:samples_per_file] = n.to_i 
 	end 
+
+	opts.on("-p", "--prefix p") do |p|
+		options[:prefix] = p
+	end
 
 	opts.on("-t", "--test") do 
 		options[:test] = true

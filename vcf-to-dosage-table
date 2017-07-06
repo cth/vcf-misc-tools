@@ -34,6 +34,10 @@ OptionParser.new do |opts|
 		options[:vcf] = file 
 	end
 
+    opts.on("-r", "--rsmap file", "Two column space separated file mapping variantid -> rsid") do |file|
+        options[:rsmap] = file
+    end
+
 	opts.on("-i", "--info file.info", "Generate INFO with for all variant") do |file|
 		options[:info] = file 
 	end
@@ -64,13 +68,24 @@ end
 
 Array.send :include, Variance
 
-
 info_lines = [[ "ID", "REF", "ALT", "CHROM", "POS", "ALT_FREQ", "INFO"]]
+
 begin
 	throw("Missing --vcf input file. Cannot proceed!") unless options.include?(:vcf) 
 	[ :dosage, :info].each { |i| options[i] = options[:vcf] + "." + i.to_s unless options.include?(i) }
 
+
 	pp options
+
+    rsmap = {}
+    if options.include?(:rsmap)
+        File.open("lookup_rs") do |file|
+            file.each do |line|
+                vid,rsid = *line.chomp.split(" ")
+                rsmap[vid] = rsid
+            end
+        end
+    end
 
 	columns = []
 	variants_processed=0
@@ -86,7 +101,13 @@ begin
 			puts "variants processed: #{variants_processed}" if variants_processed % 100 == 0
 			vcfline=Bio::DB::Vcf.new(line)
 
-			columns << [ vcfline.id ]
+            if rsmap.include?(vcfline.id)
+                rsid = rsmap[vcfline.id]    
+            else
+                puts "Note: Could not map id #{vcfline.id}"
+            end
+
+			columns << [ rsid ]
 
 			dosage_sum=0
 			dosages = []
@@ -113,7 +134,8 @@ begin
 				rsq = 1.0 if rsq > 1.0
 			end
 
-			info_lines << [ vcfline.id, vcfline.ref, vcfline.alt, vcfline.chrom, vcfline.pos, allele_freq, rsq]
+
+			info_lines << [ rsid, vcfline.ref, vcfline.alt, vcfline.chrom, vcfline.pos, allele_freq, rsq]
 		end
 	end 
 

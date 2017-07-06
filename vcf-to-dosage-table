@@ -104,6 +104,8 @@ begin
 			# may become and option.
 			if vcfline.info.include?("INFO")
 				rsq = vcfline.info["INFO"]
+            elsif vcfline.info.include?("R2") # Michigan server uses this
+                rsq = vcfline.info["R2"]
 			else
 				p =  dosages.mean / 2.0
 				p_all = 2.0 * p * (1.0 - p)

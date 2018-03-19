@@ -150,8 +150,11 @@ class VCF
 	def header
 		[ 
 			'##fileformat=VCFv4.1',
+			'##filedate=' + Time.now.year + "." + Time.now.month + "." Time.now.day,
 			'##INFO=<ID=INFO,Number=0,Type=Flag,Description="MACH info Rsq (R-squared quality of imputation)">',
-			'##FORMAT=<ID=GL,Number=.,Type=Float,Description="Genotype Likelihoods">'
+			'##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
+			'##FORMAT=<ID=DS,Number=1,Type=Float,Description="Genotype dosage">',
+			'##FORMAT=<ID=GP,Number=3,Type=Float,Description="Genotype Likelihoods">'
 		].join("\n")
 	end
 
@@ -174,7 +177,7 @@ class VCF
 
 	def sample_fields_format
 		[ @options[:threshold],@options[:dosage],@options[:likelihood] ].
-			zip(["GT","DS", "GL"]).
+			zip(["GT","DS", "GP"]).
 			collect {|the| the.last if the.first }.
 			compact.
 			join(":") 
@@ -341,7 +344,7 @@ class VCF
 				end
 
 				vcfline << [ @options[:threshold],@options[:dosage],@options[:likelihood] ].
-						zip(["GT","DS", "GL"]).
+						zip(["GT","DS", "GP"]).
 						collect {|the| the.last if the.first }.
 						compact.
 						join(":") 

@@ -150,7 +150,7 @@ class VCF
 	def header
 		[ 
 			'##fileformat=VCFv4.1',
-			'##filedate=' + Time.now.year + "." + Time.now.month + "." Time.now.day,
+			'##filedate=' + Time.now.year.to_s + "." + Time.now.month.to_s + "." + Time.now.day.to_s,
 			'##INFO=<ID=INFO,Number=0,Type=Flag,Description="MACH info Rsq (R-squared quality of imputation)">',
 			'##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
 			'##FORMAT=<ID=DS,Number=1,Type=Float,Description="Genotype dosage">',
